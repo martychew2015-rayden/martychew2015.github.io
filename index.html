@@ -73,6 +73,11 @@
             font-style: italic;
             line-height: 1.5;
             padding: 0 10px;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s ease;
         }
         
         .ritual {
@@ -82,6 +87,7 @@
             margin-top: 20px;
             text-align: left;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transition: opacity 0.5s ease;
         }
         
         .ritual-title {
@@ -98,6 +104,21 @@
             font-size: 1.1rem;
         }
         
+        .timer {
+            margin-top: 25px;
+            color: #666;
+            font-size: 0.9rem;
+            text-align: center;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+        }
+        
+        .timer span {
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        
         .instructions {
             margin-top: 25px;
             color: #666;
@@ -105,34 +126,19 @@
             text-align: center;
         }
         
-        .refresh-btn {
-            margin-top: 25px;
-            padding: 12px 25px;
-            background-color: #e74c3c;
-            color: white;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: bold;
-            transition: all 0.3s;
-            box-shadow: 0 4px 10px rgba(231, 76, 60, 0.3);
-        }
-        
-        .refresh-btn:hover {
-            background-color: #c0392b;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 15px rgba(231, 76, 60, 0.4);
-        }
-        
-        .refresh-btn:active {
-            transform: translateY(1px);
-        }
-        
         .logo {
             margin-top: 30px;
             font-size: 0.9rem;
             color: #999;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.8s ease forwards;
         }
         
         @media (max-width: 600px) {
@@ -146,6 +152,7 @@
             
             .phrase {
                 font-size: 1.3rem;
+                min-height: 100px;
             }
         }
     </style>
@@ -155,7 +162,7 @@
         <div class="header">
             <div class="color-indicator">🔴</div>
             <h1>ENERGÍA & ACTIVACIÓN</h1>
-            <p class="subtitle">Tu frase y ritual del día</p>
+            <p class="subtitle">Tu frase y ritual del momento</p>
         </div>
         
         <div class="content">
@@ -167,9 +174,11 @@
             </div>
         </div>
         
-        <button class="refresh-btn" id="refreshBtn">Nueva Frase & Ritual</button>
+        <div class="timer" id="timer">
+            Próxima actualización en: <span id="countdown">3:00</span>
+        </div>
         
-        <p class="instructions">Cada vez que escanees el código QR obtendrás una combinación diferente</p>
+        <p class="instructions">La frase y ritual cambiarán automáticamente cada 3 minutos</p>
         
         <div class="logo">AM WHISPER LIGHT EXPERIENCE™</div>
     </div>
@@ -203,45 +212,123 @@
         const phraseElement = document.getElementById('phrase');
         const ritualTitleElement = document.getElementById('ritualTitle');
         const ritualDescriptionElement = document.getElementById('ritualDescription');
-        const refreshBtn = document.getElementById('refreshBtn');
+        const countdownElement = document.getElementById('countdown');
+        
+        // Variables para el control de combinaciones usadas
+        let usedCombinations = [];
+        let currentCombination = null;
+        let countdownInterval;
 
-        // Función para obtener un elemento aleatorio de un array
-        function getRandomElement(array) {
-            return array[Math.floor(Math.random() * array.length)];
+        // Función para obtener una combinación aleatoria que no se haya usado recientemente
+        function getRandomCombination() {
+            // Si ya usamos todas las combinaciones, reiniciamos
+            if (usedCombinations.length >= rojoData.phrases.length) {
+                usedCombinations = [];
+            }
+            
+            let availablePhraseIndices = [];
+            for (let i = 0; i < rojoData.phrases.length; i++) {
+                if (!usedCombinations.includes(i)) {
+                    availablePhraseIndices.push(i);
+                }
+            }
+            
+            // Si no hay disponibles (no debería pasar), reiniciamos
+            if (availablePhraseIndices.length === 0) {
+                usedCombinations = [];
+                availablePhraseIndices = [...Array(rojoData.phrases.length).keys()];
+            }
+            
+            // Seleccionamos un índice aleatorio de los disponibles
+            const randomIndex = Math.floor(Math.random() * availablePhraseIndices.length);
+            const phraseIndex = availablePhraseIndices[randomIndex];
+            
+            // Añadimos a usados
+            usedCombinations.push(phraseIndex);
+            
+            return {
+                phrase: rojoData.phrases[phraseIndex],
+                ritual: rojoData.rituals[phraseIndex]
+            };
         }
 
         // Función para mostrar una frase y ritual aleatorios
         function showRandomContent() {
-            const randomPhrase = getRandomElement(rojoData.phrases);
-            const randomRitual = getRandomElement(rojoData.rituals);
+            const combination = getRandomCombination();
+            currentCombination = combination;
             
-            phraseElement.textContent = randomPhrase;
-            ritualTitleElement.textContent = randomRitual.title;
-            ritualDescriptionElement.textContent = randomRitual.description;
-            
-            // Efecto visual de actualización
+            // Aplicar efecto de desvanecimiento
             phraseElement.style.opacity = '0';
             ritualTitleElement.style.opacity = '0';
             ritualDescriptionElement.style.opacity = '0';
             
             setTimeout(() => {
+                phraseElement.textContent = combination.phrase;
+                ritualTitleElement.textContent = combination.ritual.title;
+                ritualDescriptionElement.textContent = combination.ritual.description;
+                
+                // Aplicar efecto de aparición
                 phraseElement.style.opacity = '1';
                 ritualTitleElement.style.opacity = '1';
                 ritualDescriptionElement.style.opacity = '1';
+                
+                // Añadir clase de animación
+                phraseElement.classList.add('fade-in');
+                ritualTitleElement.classList.add('fade-in');
+                ritualDescriptionElement.classList.add('fade-in');
+                
+                // Remover clase después de la animación
+                setTimeout(() => {
+                    phraseElement.classList.remove('fade-in');
+                    ritualTitleElement.classList.remove('fade-in');
+                    ritualDescriptionElement.classList.remove('fade-in');
+                }, 800);
             }, 300);
         }
 
+        // Función para iniciar el contador de 3 minutos
+        function startCountdown() {
+            let timeLeft = 3 * 60; // 3 minutos en segundos
+            
+            // Actualizar el contador inmediatamente
+            updateCountdownDisplay(timeLeft);
+            
+            // Limpiar intervalo anterior si existe
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+            
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                updateCountdownDisplay(timeLeft);
+                
+                if (timeLeft <= 0) {
+                    clearInterval(countdownInterval);
+                    showRandomContent();
+                    startCountdown(); // Reiniciar contador
+                }
+            }, 1000);
+        }
+
+        // Función para actualizar la visualización del contador
+        function updateCountdownDisplay(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            countdownElement.textContent = `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+        }
+
         // Mostrar contenido aleatorio al cargar la página
-        document.addEventListener('DOMContentLoaded', showRandomContent);
+        document.addEventListener('DOMContentLoaded', function() {
+            showRandomContent();
+            startCountdown();
+        });
 
-        // Manejar clic en el botón de actualización
-        refreshBtn.addEventListener('click', showRandomContent);
-
-        // También se puede actualizar con la tecla F5 o espacio
+        // También cambiar contenido al recargar la página (F5)
         document.addEventListener('keydown', function(event) {
-            if (event.code === 'Space' || event.code === 'F5') {
+            if (event.code === 'F5') {
                 event.preventDefault();
                 showRandomContent();
+                startCountdown();
             }
         });
     </script>
